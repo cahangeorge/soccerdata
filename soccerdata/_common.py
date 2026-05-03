@@ -3,6 +3,7 @@ import json
 import pprint
 import random
 import re
+import threading
 import time
 import warnings
 from abc import ABC, abstractmethod
@@ -333,6 +334,7 @@ class BaseReader(ABC):
 
         cache_invalid = False
         # Check if cached file is too old
+        # TODO: Implement ETag/checksum-based caching instead of only file age.
         if _max_age is not None and filepath is not None and filepath.exists():
             last_modified = datetime.fromtimestamp(filepath.stat().st_mtime, tz=timezone.utc)
             now = datetime.now(timezone.utc)
@@ -370,14 +372,19 @@ class BaseReader(ABC):
         """Return a list of league IDs available for this source."""
         return sorted(cls._all_leagues().keys())
 
+    _all_leagues_cache: dict[type, dict[str, str]] = {}
+    _all_leagues_lock = threading.Lock()
+
     @classmethod
     def _all_leagues(cls) -> dict[str, str]:
         """Return a dict mapping all canonical league IDs to source league IDs."""
-        if not hasattr(cls, "_all_leagues_dict"):
-            cls._all_leagues_dict = {  # type: ignore
-                k: v[cls.__name__] for k, v in LEAGUE_DICT.items() if cls.__name__ in v
-            }
-        return cls._all_leagues_dict  # type: ignore
+        if cls not in cls._all_leagues_cache:
+            with cls._all_leagues_lock:
+                if cls not in cls._all_leagues_cache:
+                    cls._all_leagues_cache[cls] = {
+                        k: v[cls.__name__] for k, v in LEAGUE_DICT.items() if cls.__name__ in v
+                    }
+        return cls._all_leagues_cache[cls]
 
     @classmethod
     def _translate_league(cls, df: pd.DataFrame, col: str = "league") -> pd.DataFrame:
@@ -468,7 +475,10 @@ class BaseReader(ABC):
 
 
 class BaseRequestsReader(BaseReader):
-    """Base class for readers that use the Python requests module."""
+    """Base class for readers that use the Python requests module.
+
+    TODO: Add concurrent/asyncio support for parallel requests.
+    """
 
     def __init__(
         self,
@@ -536,7 +546,10 @@ class BaseRequestsReader(BaseReader):
 
 
 class BaseSeleniumReader(BaseReader):
-    """Base class for readers that use Selenium."""
+    """Base class for readers that use Selenium.
+
+    TODO: Add concurrent/asyncio support for parallel requests.
+    """
 
     def __init__(
         self,

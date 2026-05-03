@@ -59,7 +59,7 @@ COLS_EVENTS = {
     "blocked_x": np.nan,
     "blocked_y": np.nan,
     # List of dicts with event qualifiers
-    "qualifiers": [],
+    "qualifiers": None,
     # Some boolean flags
     "is_touch": False,
     "is_shot": False,
@@ -156,6 +156,7 @@ class WhoScored(BaseSeleniumReader):
         data_dir: Path = WHOSCORED_DATADIR,
         path_to_browser: Optional[Path] = None,
         headless: bool = False,
+        rate_limit: Optional[int] = None,
     ):
         """Initialize the WhoScored reader."""
         super().__init__(
@@ -167,8 +168,13 @@ class WhoScored(BaseSeleniumReader):
             path_to_browser=path_to_browser,
             headless=headless,
         )
+        import os
         self.seasons = seasons
-        self.rate_limit = 5
+        self.rate_limit = (
+            rate_limit
+            if rate_limit is not None
+            else int(os.environ.get("SOCCERDATA_WHOSCORED_RATE_LIMIT", "5"))
+        )
         self.max_delay = 5
         if not self.no_store:
             (self.data_dir / "seasons").mkdir(parents=True, exist_ok=True)
@@ -583,6 +589,7 @@ class WhoScored(BaseSeleniumReader):
         )
 
     def read_events(  # noqa: C901
+        # TODO: This method is 230+ lines and needs to be refactored into smaller helper methods.
         self,
         match_id: Optional[Union[int, list[int]]] = None,
         force_cache: bool = False,
