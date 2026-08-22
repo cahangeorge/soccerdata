@@ -2,7 +2,7 @@ name: Safely sync upstream
 
 on:
   schedule:
-    - cron: '39 5 * * 1'
+    - cron: "39 5 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -48,6 +48,12 @@ jobs:
             echo 'changes=false' >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: astral-sh/setup-uv@v7
+        if: steps.upstream.outputs.changes == 'true'
+        with:
+          python-version: "3.12"
+          version: "0.8.3"
+
       - name: Prepare a merge candidate
         if: steps.upstream.outputs.changes == 'true'
         id: candidate
@@ -57,22 +63,22 @@ jobs:
           git checkout -B "$branch" "origin/${PLATFORM_BRANCH}"
           if ! git merge --no-commit --no-ff "upstream/${UPSTREAM_BRANCH}"; then
             conflicts="$(git diff --name-only --diff-filter=U)"
-            if [ -z "$conflicts" ] || printf '%s\n' "$conflicts" | grep -qv '^\.github/workflows/'; then
+            if [ -z "$conflicts" ] || printf '%s\n' "$conflicts" | grep -qvE '^(\.github/workflows/|uv\.lock$)'; then
               git merge --abort || true
               exit 1
             fi
             git checkout --ours -- .github/workflows
             git add .github/workflows
+            if printf '%s\n' "$conflicts" | grep -qx 'uv.lock'; then
+              rm uv.lock
+              uv lock
+              git add uv.lock
+            fi
           fi
           # Keep the platform's reviewed Actions configuration out of upstream syncs.
           git checkout "origin/${PLATFORM_BRANCH}" -- .github/workflows
           git commit -m "chore(sync): merge upstream ${UPSTREAM_BRANCH}"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
-
-      - uses: astral-sh/setup-uv@v7
-        if: steps.upstream.outputs.changes == 'true'
-        with:
-          python-version: '3.12'
 
       - name: Install locked test dependencies
         if: steps.upstream.outputs.changes == 'true'
