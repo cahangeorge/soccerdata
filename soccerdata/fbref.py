@@ -96,6 +96,7 @@ class FBref(BaseSeleniumReader):
             headers=FBREF_HEADERS,
         )
         import os
+
         self.rate_limit = (
             rate_limit
             if rate_limit is not None
@@ -639,7 +640,9 @@ class FBref(BaseSeleniumReader):
             reader = self.get(url_stats, filepath_stats)
             tree = html.parse(reader)
 
-            url_fixtures = FBREF_API + tree.xpath("//a[text()='Scores & Fixtures']")[0].get("href")  # TODO: unsafe index [0], wrap in try/except
+            url_fixtures = FBREF_API + tree.xpath("//a[text()='Scores & Fixtures']")[0].get(
+                "href"
+            )  # TODO: unsafe index [0], wrap in try/except
             filepath_fixtures = self.data_dir / f"schedule_{lkey}_{skey}.html"
             current_season = not self._is_complete(lkey, skey)
             reader = self.get(
@@ -648,7 +651,9 @@ class FBref(BaseSeleniumReader):
                 no_cache=current_season and not force_cache,
             )
             tree = html.parse(reader)
-            html_table = tree.xpath("//table[contains(@id, 'sched')]")[0]  # TODO: unsafe index [0], wrap in try/except
+            html_table = tree.xpath("//table[contains(@id, 'sched')]")[
+                0
+            ]  # TODO: unsafe index [0], wrap in try/except
             df_table = _parse_table(html_table)
             df_table["Match Report"] = [
                 (

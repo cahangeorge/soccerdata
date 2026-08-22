@@ -169,6 +169,7 @@ class WhoScored(BaseSeleniumReader):
             headless=headless,
         )
         import os
+
         self.seasons = seasons
         self.rate_limit = (
             rate_limit
